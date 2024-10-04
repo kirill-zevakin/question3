@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+ name: my-app-deployment
+spec:
+ replicas: 3 # Задаем 3 реплики для обработки постоянной нагрузки
+ selector:
+  matchLabels:
+   app: my-app
+ template:
+  metadata:
+   labels:
+    app: my-app
+  spec:
+   # Инициализируем контейнер с минимальным количеством ресурсов
+   containers:
+   - name: my-app
+    image: my-app-image:latest
+    resources:
+     requests:
+      cpu: 100m # Начальное требование в 100m CPU для быстрой инициализации
+      memory: 128Mi # Постоянное требование в 128Mi памяти
+     limits:
+      cpu: 100m # Ограничение в 100m CPU после инициализации
+      memory: 128Mi # Ограничение в 128Mi памяти
+    # Добавляем livenessProbe для отслеживания работоспособности
+    # Этот проба проверяет, что контейнер работает, после завершения инициализации
+    livenessProbe:
+     tcpSocket:
+      port: 8080 # Порт, который слушает приложение
+     initialDelaySeconds: 10 # Задержка перед началом проверки
+     periodSeconds: 10 # Период проверки
+     failureThreshold: 3 # Максимальное количество неудачных проверок
+    # Добавляем readinessProbe для проверки готовности контейнера к обработке запросов
+    # Этот проба проверяет, что приложение готово к работе после инициализации
+    readinessProbe:
+     tcpSocket:
+      port: 8080 # Порт, который слушает приложение
+     initialDelaySeconds: 15 # Задержка перед началом проверки
+     periodSeconds: 5 # Период проверки
+     failureThreshold: 3 # Максимальное количество неудачных проверок
+   # Используем affinity для распределения подов по разным нодам
+   affinity:
+    podAntiAffinity:
+     preferredDuringSchedulingIgnoredDuringExecution:
+     - weight: 100 # Высокий приоритет
+      podAffinityTerm:
+       labelSelector:
+        matchExpressions:
+        - key: app
+         operator: In
+         values:
+         - my-app
+       topologyKey: kubernetes.io/hostname # Размещение на разных нодах
